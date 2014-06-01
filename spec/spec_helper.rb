@@ -19,6 +19,6 @@ RSpec.configure do |config|
   end
 
   config.around(:each) do |example|
-    Timeout.timeout(5, &example)
+    Timeout.timeout(1, &example)
   end
 end
