@@ -95,7 +95,7 @@ class Puddle
 
     # @return [#call]
     def to_proc
-      method(:call)
+      method(:call).to_proc
     end
 
     private
