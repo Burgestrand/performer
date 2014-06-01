@@ -7,6 +7,7 @@ class Puddle
   class TerminatedError < Error; end
   class OwnershipError < Error; end
   class DoubleCallError < Error; end
+  class CancelledError < Error; end
 
   def initialize
     @queue = Queue.new
@@ -25,12 +26,18 @@ class Puddle
   # @return [Thread] the underlying Puddle thread.
   attr_reader :thread
 
+  # @return [Boolean] true if the puddle is accepting work.
+  def alive?
+    @queue and running?
+  end
+
   # Synchronously schedule a block for execution in the Puddle.
   #
   # If run from inside the Puddle thread, the block will run
   # instantaneously, before any other tasks in the queue.
   #
   # @param [Integer, nil] timeout (see Task#value)
+  # @raise [TimeoutError]
   def sync(timeout = nil, &block)
     schedule(block).value(timeout)
   end
@@ -47,6 +54,9 @@ class Puddle
   # to finish all remaining work in the queue before terminating, but
   # it will not allow additional work to be queued.
   #
+  # If a block is given, it will execute inside the Puddle as the final
+  # task to ever run in the Puddle.
+  #
   # @param [Integer, nil] timeout (see Task#value)
   def terminate(timeout = nil)
     queue, @queue = @queue, nil
@@ -59,8 +69,12 @@ class Puddle
 
   private
 
+  def running?
+    @running and @thread.alive?
+  end
+
   def schedule(queue = @queue, block)
-    if queue and @running and @thread.alive?
+    if queue and running?
       task = Task.new(@thread, block)
       queue << task
       task
