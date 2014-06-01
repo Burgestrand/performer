@@ -39,7 +39,11 @@ class Puddle
   # @param [Integer, nil] timeout (see Task#value)
   # @raise [TimeoutError]
   def sync(timeout = nil, &block)
-    schedule(block).value(timeout)
+    if Thread.current == @thread
+      yield
+    else
+      schedule(block).value(timeout)
+    end
   end
 
   # Asynchronously schedule a block for execution in the Puddle.

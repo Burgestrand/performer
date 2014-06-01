@@ -38,6 +38,14 @@ describe Puddle do
       lambda { puddle.sync(0) { sleep } }.should raise_error(TimeoutError)
     end
 
+    it "yields directly to the task when executed from within the puddle" do
+      value = puddle.sync do
+        puddle.sync { 1 + 2 }
+      end
+
+      value.should eq(3)
+    end
+
     it "executes a task synchronously in another thread" do
       thread = puddle.sync { Thread.current }
       thread.should_not eq(Thread.current)
