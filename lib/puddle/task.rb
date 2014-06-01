@@ -26,7 +26,7 @@ class Puddle
     class CancelledError < Error; end
 
     # Raised from {Task#call} or {Task#cancel} on invariant errors.
-    class TransitionError < Error; end
+    class InvariantError < Error; end
 
     # Create a new Task from a callable object.
     #
@@ -128,7 +128,7 @@ class Puddle
     def set(type)
       @value_mutex.synchronize do
         unless Transitions.fetch(@value_type, {}).has_key?(type)
-          raise TransitionError, "transition from #{@value_type} to #{type} is not allowed"
+          raise InvariantError, "transition from #{@value_type} to #{type} is not allowed"
         end
 
         @value_type = type

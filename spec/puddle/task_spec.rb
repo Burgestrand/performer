@@ -6,7 +6,7 @@ describe Puddle::Task do
     it "raises an error if called after a result is available" do
       task.call
 
-      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
     end
 
     it "raises an error when called during execution" do
@@ -14,13 +14,13 @@ describe Puddle::Task do
       thread = Thread.new(task, &:call)
       wait_until_sleep(thread)
 
-      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
     end
 
     it "raises an error if called after task was cancelled" do
       task.cancel
 
-      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
     end
 
     it "returns the result" do
@@ -38,7 +38,7 @@ describe Puddle::Task do
     it "raises an error if called after a result is available" do
       task.call
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
     end
 
     it "raises an error when called during execution" do
@@ -46,7 +46,7 @@ describe Puddle::Task do
       thread = Thread.new(task, &:call)
       wait_until_sleep(thread)
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
 
       thread.wakeup
       task.value.should eq(:ok)
@@ -55,7 +55,7 @@ describe Puddle::Task do
     it "raises an error if called after task was cancelled" do
       task.cancel
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
+      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
     end
   end
 
