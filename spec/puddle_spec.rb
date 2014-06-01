@@ -29,7 +29,7 @@ describe Puddle do
 
       stopgap.push :go
 
-      lambda { task.value }.should raise_error(Puddle::CancelledError)
+      lambda { task.value }.should raise_error(Puddle::Task::CancelledError)
     end
   end
 
