@@ -37,6 +37,12 @@ describe Puddle do
 
       lambda { task.value }.should raise_error(Puddle::Task::CancelledError)
     end
+
+    specify "if the puddle crashes, it no longer accepts tasks" do
+      lambda { puddle.sync { raise Exception, "Hell" } }.should raise_error
+
+      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::TerminatedError)
+    end
   end
 
   describe "#sync" do
@@ -83,6 +89,11 @@ describe Puddle do
 
       task.value.should eq(:done)
       term.value.should eq(:yay)
+    end
+
+    it "prevents scheduling additional tasks" do
+      puddle.terminate { :yay }
+      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::TerminatedError)
     end
   end
 end

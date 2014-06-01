@@ -75,15 +75,15 @@ class Puddle
 
   private
 
-  def running?
-    @running and @thread.alive?
-  end
-
   def schedule(queue = @queue, block)
-    if queue and running?
-      queue.enq Task.new(block)
+    if queue
+      begin
+        queue.enq Task.new(block)
+      rescue Puddle::Queue::DrainedError
+        raise TerminatedError, "puddle is terminated"
+      end
     else
-      raise TerminatedError, "#{self} is terminated"
+      raise TerminatedError, "puddle is terminated"
     end
   end
 end
