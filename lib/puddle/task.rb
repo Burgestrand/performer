@@ -8,20 +8,25 @@ class Puddle
   # - it can only be {#call}ed once
   # - it's {#value} will never change, once set
   class Task
-    # Create a new Task, optionally belonging to the given thread.
+    Transitions = {
+      idle: { executing: true, cancelled: true },
+      executing: { error: true, value: true },
+    }
+
+    class CancelledError < Error; end
+    class TransitionError < Error; end
+
+    # Create a new Task from a callable object.
     #
-    # @param [Thread] thread
     # @param [#call] callable
-    def initialize(thread = nil, callable)
-      @thread = thread
+    def initialize(callable)
       @callable = callable
-      @callable_mutex = Mutex.new
 
       @value_mutex = Mutex.new
       @value_cond = Puddle::ConditionVariable.new
 
       @value = nil
-      @value_type = nil
+      @value_type = :idle
     end
 
     # Call the callable object given to {#initialize}. Arguments and block
@@ -29,24 +34,11 @@ class Puddle
     #
     # Once the call finishes, or if it raises an error, the value of the Task
     # will be set and any threads waiting for the value will be woken up.
-    #
-    # @raise [OwnershipError] if called from the wrong thread
-    # @raise [DoubleCallError] if called more than once
     def call(*args, &block)
-      if @thread and @thread != Thread.current
-        raise OwnershipError, "#{@thread} is not #{Thread.current}"
-      end
-
-      callable = @callable_mutex.synchronize do
-        @callable.tap { @callable = nil }
-      end
-
-      if callable.nil?
-        raise DoubleCallError, "I have already been called!"
-      end
+      set(:executing) { nil }
 
       begin
-        value = callable.call(*args, &block)
+        value = @callable.call(*args, &block)
         set(:value) { value }
       rescue Exception => ex
         set(:error) { ex }
@@ -54,7 +46,18 @@ class Puddle
       end
     end
 
+    # Cancel the task.
+    #
+    # This cannot be done while the task is executing, or after task has a result.
+    #
+    # @param [String] message will be stored for retrival within {#value}
+    def cancel(message = "task was cancelled")
+      set(:cancelled) { CancelledError.new(message) }
+    end
+
     # Retrieve the value the task resolved to, or wait if it has not yet finished.
+    #
+    # If the Task resulted in an error, that error will be raised.
     #
     # @param [Integer, nil] timeout how long to wait for value before timing out
     # @yield if block given, yields instead of raising an error on timeout
@@ -68,7 +71,7 @@ class Puddle
 
       if value?
         return @value
-      elsif error?
+      elsif error? or cancelled?
         raise @value
       elsif block_given?
         yield
@@ -77,36 +80,40 @@ class Puddle
       end
     end
 
-    # @return [Boolean] true if terminated with an error
-    def error?
-      @value_type == :error
-    end
-
-    # @return [Boolean] true if terminated with a value
-    def value?
-      @value_type == :value
-    end
-
-    # @return [Boolean] true if finished executing
-    def done?
-      value_type = @value_type
-      not value_type.nil?
-    end
-
-    # @return [#call]
+    # @return [Proc]
     def to_proc
       method(:call).to_proc
     end
 
     private
 
+    def error?
+      @value_type == :error
+    end
+
+    def value?
+      @value_type == :value
+    end
+
+    def cancelled?
+      @value_type == :cancelled
+    end
+
+    def done?
+      value? or error? or cancelled?
+    end
+
+    # @param [Symbol] type
+    # @yield to set the value
     def set(type)
       @value_mutex.synchronize do
-        raise Error, "future is already done; this should never happen!" if done?
+        unless Transitions.fetch(@value_type, {}).has_key?(type)
+          raise TransitionError, "transition from #{@value_type} to #{type} is not allowed"
+        end
 
         @value_type = type
         @value = yield
-        @value_cond.broadcast
+        @value_cond.broadcast if done?
 
         @value
       end

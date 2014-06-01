@@ -18,5 +18,12 @@ result # => 3
 future = puddle.async { 2 + 1 }
 future.value # => 3
 
-puddle.shutdown(timeout) { puts "Terminated." }
+nested = puddle.sync do
+  puddle.sync { 2 + 1 }
+end
+nested # => 3
+
+puddle.shutdown(timeout) do
+  puts "Puddle has been properly terminated."
+end
 ```

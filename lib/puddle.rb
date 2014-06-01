@@ -1,13 +1,8 @@
 require "puddle/version"
-require "puddle/condition_variable"
-require "puddle/task"
 
 class Puddle
   class Error < StandardError; end
   class TerminatedError < Error; end
-  class OwnershipError < Error; end
-  class DoubleCallError < Error; end
-  class CancelledError < Error; end
 
   def initialize
     @queue = Queue.new
@@ -79,7 +74,7 @@ class Puddle
 
   def schedule(queue = @queue, block)
     if queue and running?
-      task = Task.new(@thread, block)
+      task = Task.new(block)
       queue << task
       task
     else
@@ -87,3 +82,6 @@ class Puddle
     end
   end
 end
+
+require "puddle/condition_variable"
+require "puddle/task"

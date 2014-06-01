@@ -1,42 +1,109 @@
 describe Puddle::Task do
   let(:task) { Puddle::Task.new(noop) }
   let(:noop) { lambda { :ok } }
-  let(:other_thread) { Thread.new {} }
 
   describe "#call" do
-    it "raises an error if not the owner thread" do
-      task = Puddle::Task.new(other_thread, noop)
-      lambda { task.call }.should raise_error(Puddle::OwnershipError)
-    end
-
-    it "raises an error if called twice" do
+    it "raises an error if called after a result is available" do
       task.call
-      lambda { task.call }.should raise_error(Puddle::DoubleCallError)
+
+      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
     end
 
-    it "does not raise an error if owner thread is not defined" do
+    it "raises an error when called during execution" do
+      task = Puddle::Task.new(lambda { sleep })
+      thread = Thread.new(task, &:call)
+      wait_until_sleep(thread)
+
+      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
+    end
+
+    it "raises an error if called after task was cancelled" do
+      task.cancel
+
+      lambda { task.call }.should raise_error(Puddle::Task::TransitionError)
+    end
+
+    it "returns the result" do
       task.call.should eq(:ok)
+    end
+
+    it "re-raises errors" do
+      noop.should_receive(:call).and_raise
+
+      lambda { task.call }.should raise_error
+    end
+  end
+
+  describe "#cancel" do
+    it "raises an error if called after a result is available" do
+      task.call
+
+      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
+    end
+
+    it "raises an error when called during execution" do
+      task = Puddle::Task.new(lambda { sleep; :ok })
+      thread = Thread.new(task, &:call)
+      wait_until_sleep(thread)
+
+      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
+
+      thread.wakeup
+      task.value.should eq(:ok)
+    end
+
+    it "raises an error if called after task was cancelled" do
+      task.cancel
+
+      lambda { task.cancel }.should raise_error(Puddle::Task::TransitionError)
     end
   end
 
   describe "#value" do
-    it "retrieves the value if task is done" do
-      task.call
-      task.value.should eq(:ok)
+    context "task has a result available" do
+      it "returns the value" do
+        task.call
+
+        task.value.should eq(:ok)
+      end
+
+      it "raises the error if the task is an error" do
+        error = RuntimeError.new("Some error")
+        noop.should_receive(:call).and_raise(error)
+        task.call rescue nil
+
+        lambda { task.value }.should raise_error(error)
+      end
+
+      it "raises the error if the task is cancelled" do
+        task.cancel
+
+        lambda { task.value }.should raise_error(Puddle::Task::CancelledError)
+      end
     end
 
-    it "waits until task is done if task is not done" do
-      waiter = Thread.new(task) { |t| t.value }
-      wait_until_sleep(waiter)
-      task.call
-      waiter.value.should eq(:ok)
-    end
+    context "task receives a result later on" do
+      let(:waiter) { Thread.new(task, &:value) }
+      before(:each) { wait_until_sleep(waiter) }
 
-    it "raises an error if the task was an error" do
-      error = RuntimeError.new("Some error")
-      noop.should_receive(:call).and_raise(error)
-      lambda { task.call }.should raise_error(error)
-      lambda { task.value }.should raise_error(error)
+      it "is woken up once a value is available" do
+        task.call
+        waiter.value.should eq(:ok)
+      end
+
+      it "is woken up once an error is available" do
+        error = RuntimeError.new("Some error")
+        noop.should_receive(:call).and_raise(error)
+        task.call rescue nil
+
+        lambda { waiter.value }.should raise_error(error)
+      end
+
+      it "is woken up once task is cancelled" do
+        task.cancel
+
+        lambda { waiter.value }.should raise_error(Puddle::Task::CancelledError)
+      end
     end
 
     it "yields to the given block on timeout" do
@@ -45,32 +112,6 @@ describe Puddle::Task do
 
     it "raises an error on timeout" do
       lambda { task.value(0) }.should raise_error(TimeoutError)
-    end
-  end
-
-  describe "query methods" do
-    specify "pending" do
-      task.should_not be_value
-      task.should_not be_error
-      task.should_not be_done
-    end
-
-    specify "success" do
-      noop.should_receive(:call).and_return(:ok)
-      task.call
-
-      task.should be_value
-      task.should_not be_error
-      task.should be_done
-    end
-
-    specify "error" do
-      noop.should_receive(:call).and_raise
-      task.call rescue nil
-
-      task.should_not be_value
-      task.should be_error
-      task.should be_done
     end
   end
 
