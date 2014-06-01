@@ -1,19 +1,31 @@
 require "timeout"
 
 class Puddle
-  # A Task is constructed with an owner thread, and a callable object.
+  # A task is constructed with a callable object (like a proc), and provides ways to:
   #
-  # A Task has the following guarantees:
-  # - it is thread-safe
-  # - it can only be {#call}ed once
-  # - it's {#value} will never change, once set
+  # - call the contained object, once and only once
+  # - retrieve the value from the execution of the callable, and wait if execution is not finished
+  # - cancel a task, and as such wake up all waiting for the task value
+  #
+  # Furthermore, the Task public API is thread-safe, and a resolved task will never change value.
+  #
+  # @example constructing a task
+  #   task = Task.new(lambda { 1 + 1 })
+  #   worker = Thread.new(&task)
+  #   task.value # => 2
   class Task
+    # Used for the internal task state machine.
+    #
+    # @api private
     Transitions = {
       idle: { executing: true, cancelled: true },
       executing: { error: true, value: true },
     }
 
+    # Raised in {Task#value} if the task was cancelled.
     class CancelledError < Error; end
+
+    # Raised from {Task#call} or {Task#cancel} on invariant errors.
     class TransitionError < Error; end
 
     # Create a new Task from a callable object.
@@ -29,11 +41,12 @@ class Puddle
       @value_type = :idle
     end
 
-    # Call the callable object given to {#initialize}. Arguments and block
-    # are passed on to the callable.
+    # Execute the task. Arguments and block are passed on to the callable.
     #
-    # Once the call finishes, or if it raises an error, the value of the Task
-    # will be set and any threads waiting for the value will be woken up.
+    # @note A task can only be called once.
+    # @note A task can not be called after it has been cancelled.
+    #
+    # When execution finishes, all waiting for {#value} will be woken up with the result.
     def call(*args, &block)
       set(:executing) { nil }
 
@@ -46,22 +59,24 @@ class Puddle
       end
     end
 
-    # Cancel the task.
+    # Cancel the task. All waiting for {#value} will be woken up with a {CancelledError}.
     #
-    # This cannot be done while the task is executing, or after task has a result.
+    # @note This cannot be done while the task is executing.
+    # @note This cannot be done if the task has finished executing.
     #
-    # @param [String] message will be stored for retrival within {#value}
+    # @param [String] message for the cancellation error
     def cancel(message = "task was cancelled")
       set(:cancelled) { CancelledError.new(message) }
     end
 
-    # Retrieve the value the task resolved to, or wait if it has not yet finished.
+    # Retrieve the value of the task. If the task is not finished, this will block.
     #
-    # If the Task resulted in an error, that error will be raised.
+    # @example waiting with a timeout and a block
+    #   task.value(1) { raise MyOwnError, "Timed out after 1s" }
     #
-    # @param [Integer, nil] timeout how long to wait for value before timing out
+    # @param [Integer, nil] timeout how long to wait for value before timing out, nil if wait forever
     # @yield if block given, yields instead of raising an error on timeout
-    # @raise [TimeoutError] if waiting timeout was reached
+    # @raise [TimeoutError] if waiting timeout was reached, and no block was given
     def value(timeout = nil)
       unless done?
         @value_mutex.synchronize do
@@ -80,6 +95,11 @@ class Puddle
       end
     end
 
+    # Allows using tasks as blocks in method calls.
+    #
+    # @example
+    #   thread = Thread.new(&task)
+    #
     # @return [Proc]
     def to_proc
       method(:call).to_proc
