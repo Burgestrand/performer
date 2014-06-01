@@ -20,7 +20,11 @@ class Puddle
         end
       ensure
         queue.drain.each do |task|
-          task.cancel rescue nil
+          begin
+            task.cancel
+          rescue Puddle::Task::Error
+            # Ignore it. We're exiting anyway.
+          end
         end
       end
     end
@@ -29,13 +33,16 @@ class Puddle
   # @return [Thread] the underlying Puddle thread.
   attr_reader :thread
 
-  # Synchronously schedule a block for execution in the Puddle.
+  # Synchronously schedule a block for execution.
   #
-  # If run from inside the Puddle thread, the block will run
-  # instantaneously, before any other tasks in the queue.
+  # If run from inside a task in the same puddle, the block is executed
+  # immediately. You can avoid this behavior by using {#async} instead.
   #
   # @param [Integer, nil] timeout (see Task#value)
-  # @raise [TimeoutError]
+  # @yield block to be executed
+  # @return whatever the block returned
+  # @raise [TimeoutError] if waiting for the task to finish timed out
+  # @raise [TerminatedError] if shutdown has been requested
   def sync(timeout = nil, &block)
     if Thread.current == @thread
       yield
@@ -44,29 +51,26 @@ class Puddle
     end
   end
 
-  # Asynchronously schedule a block for execution in the Puddle.
+  # Asynchronously schedule a block for execution.
   #
+  # @yield block to be executed
   # @return [Puddle::Task]
-  # @raise [TerminatedError] if Puddle has been terminated
+  # @raise [TerminatedError] if shutdown has been requested
   def async(&block)
     schedule(block)
   end
 
-  # Request a fair shutdown of the Puddle. This will allow the Puddle
-  # to finish all remaining work in the queue before terminating, but
-  # it will not allow additional work to be queued.
+  # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
   #
-  # If a block is given, it will execute inside the Puddle as the final
-  # task to ever run in the Puddle.
+  # @note No additional tasks will be accepted during shutdown.
   #
-  # @param [Integer, nil] timeout (see Task#value)
-  def terminate(timeout = nil)
+  # @return [Puddle::Task]
+  def terminate
     queue, @queue = @queue, nil
-    task = schedule(queue, lambda do
+    schedule(queue, lambda do
       @running = false
       yield if block_given?
     end)
-    task.value(timeout)
   end
 
   private

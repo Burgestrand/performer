@@ -79,8 +79,10 @@ describe Puddle do
 
       puddle.async { stopgap.pop }
       task = puddle.async { :done }
-      puddle.terminate { :yay }.should eq(:yay)
+      term = puddle.terminate { :yay }
+
       task.value.should eq(:done)
+      term.value.should eq(:yay)
     end
   end
 end
