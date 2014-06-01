@@ -22,6 +22,8 @@ class Puddle
       executing: { error: true, value: true },
     }
 
+    class Error < Puddle::Error; end
+
     # Raised in {Task#value} if the task was cancelled.
     class CancelledError < Error; end
 

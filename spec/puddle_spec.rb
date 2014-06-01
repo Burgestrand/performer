@@ -12,15 +12,21 @@ describe Puddle do
   describe "errors" do
     specify "standard errors in tasks do not crash the puddle" do
       lambda { puddle.sync { raise "Hell" } }.should raise_error(/Hell/)
-      puddle.should be_alive
+      puddle.sync { 1 + 1 }.should eq(2)
     end
 
-    specify "non-standard errors in tasks crash the puddle" do
-      lambda { puddle.sync { raise Exception, "Hell" } }.should raise_error(/Hell/)
-      puddle.should_not be_alive
+    specify "cancelled tasks do not crash the puddle" do
+      stopgap = Queue.new
+
+      puddle.async { stopgap.pop }
+      task = puddle.async { 1 + 1 }
+      task.cancel
+      stopgap.push :go
+
+      puddle.sync { 1 + 1 }.should eq(2)
     end
 
-    xspecify "if the puddle crashes, it brings all queued tasks with it" do
+    specify "if the puddle crashes, it brings all queued tasks with it" do
       stopgap = Queue.new
 
       puddle.async { stopgap.pop }

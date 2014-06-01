@@ -5,28 +5,29 @@ class Puddle
   class TerminatedError < Error; end
 
   def initialize
-    @queue = Queue.new
+    @queue = Puddle::Queue.new
     @running = true
 
-    @loop = Task.new(lambda do |queue|
-      while @running
-        task = queue.pop
-        task.call rescue nil
+    @thread = Thread.new(@queue) do |queue|
+      begin
+        while @running
+          begin
+            queue.deq.call
+          rescue Puddle::Task::Error
+            # Ignore. Task could have been cancelled,
+            # or executed from somewhere else. Oh well.
+          end
+        end
+      ensure
+        queue.drain.each do |task|
+          task.cancel rescue nil
+        end
       end
-    end)
-
-    @thread = Thread.new(@loop, @queue) do |task, queue|
-      task.call(queue)
     end
   end
 
   # @return [Thread] the underlying Puddle thread.
   attr_reader :thread
-
-  # @return [Boolean] true if the puddle is accepting work.
-  def alive?
-    @queue and running?
-  end
 
   # Synchronously schedule a block for execution in the Puddle.
   #
@@ -76,9 +77,7 @@ class Puddle
 
   def schedule(queue = @queue, block)
     if queue and running?
-      task = Task.new(block)
-      queue << task
-      task
+      queue.enq Task.new(block)
     else
       raise TerminatedError, "#{self} is terminated"
     end
@@ -86,4 +85,5 @@ class Puddle
 end
 
 require "puddle/condition_variable"
+require "puddle/queue"
 require "puddle/task"
