@@ -15,7 +15,9 @@ class Puddle
       end
     end)
 
-    @thread = Thread.new(@queue, &@loop)
+    @thread = Thread.new(@loop, @queue) do |task, queue|
+      task.call(queue)
+    end
   end
 
   # @return [Thread] the underlying Puddle thread.

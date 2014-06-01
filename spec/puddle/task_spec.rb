@@ -23,14 +23,20 @@ describe Puddle::Task do
       lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
     end
 
-    it "returns the result" do
-      task.call.should eq(:ok)
+    it "swallows standard errors" do
+      error = StandardError.new("Hello!")
+      noop.should_receive(:call).and_raise(error)
+
+      task.call.should eql(task)
+      lambda { task.value }.should raise_error(error)
     end
 
-    it "re-raises errors" do
-      noop.should_receive(:call).and_raise
+    it "re-raises non-standard errors" do
+      error = SyntaxError.new("Hello!")
+      noop.should_receive(:call).and_raise(error)
 
-      lambda { task.call }.should raise_error
+      lambda { task.call }.should raise_error(error)
+      lambda { task.value }.should raise_error(error)
     end
   end
 
@@ -112,16 +118,6 @@ describe Puddle::Task do
 
     it "raises an error on timeout" do
       lambda { task.value(0) }.should raise_error(TimeoutError)
-    end
-  end
-
-  describe "#to_proc" do
-    def yielder
-      yield
-    end
-
-    it "returns a callable proc" do
-      yielder(&task).should eq(:ok)
     end
   end
 end

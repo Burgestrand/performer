@@ -11,7 +11,7 @@ class Puddle
   #
   # @example constructing a task
   #   task = Task.new(lambda { 1 + 1 })
-  #   worker = Thread.new(&task)
+  #   worker = Thread.new(task, &:call)
   #   task.value # => 2
   class Task
     # Used for the internal task state machine.
@@ -45,18 +45,26 @@ class Puddle
     #
     # @note A task can only be called once.
     # @note A task can not be called after it has been cancelled.
+    # @note A task swallows standard errors during execution, but all other errors are propagated.
     #
     # When execution finishes, all waiting for {#value} will be woken up with the result.
+    #
+    # @return [Task] self
     def call(*args, &block)
       set(:executing) { nil }
 
       begin
         value = @callable.call(*args, &block)
-        set(:value) { value }
+      rescue => ex
+        set(:error) { ex }
       rescue Exception => ex
         set(:error) { ex }
         raise ex
+      else
+        set(:value) { value }
       end
+
+      self
     end
 
     # Cancel the task. All waiting for {#value} will be woken up with a {CancelledError}.
@@ -93,16 +101,6 @@ class Puddle
       else
         raise TimeoutError, "retrieving value timed out after #{timeout}s"
       end
-    end
-
-    # Allows using tasks as blocks in method calls.
-    #
-    # @example
-    #   thread = Thread.new(&task)
-    #
-    # @return [Proc]
-    def to_proc
-      method(:call).to_proc
     end
 
     private
