@@ -41,7 +41,7 @@ describe Puddle do
     specify "if the puddle crashes, it no longer accepts tasks" do
       lambda { puddle.sync { raise Exception, "Hell" } }.should raise_error
 
-      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::TerminatedError)
+      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::ShutdownError)
     end
   end
 
@@ -75,7 +75,7 @@ describe Puddle do
     end
   end
 
-  describe "#terminate" do
+  describe "#shutdown" do
     it "allows all existing tasks to finish" do
       stopgap = Queue.new
       waiter = Thread.new(Thread.current) do |thread|
@@ -85,15 +85,15 @@ describe Puddle do
 
       puddle.async { stopgap.pop }
       task = puddle.async { :done }
-      term = puddle.terminate { :yay }
+      term = puddle.shutdown { :yay }
 
       task.value.should eq(:done)
       term.value.should eq(:yay)
     end
 
     it "prevents scheduling additional tasks" do
-      puddle.terminate { :yay }
-      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::TerminatedError)
+      puddle.shutdown { :yay }
+      lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::ShutdownError)
     end
   end
 end

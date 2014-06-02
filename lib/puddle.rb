@@ -2,7 +2,7 @@ require "puddle/version"
 
 class Puddle
   class Error < StandardError; end
-  class TerminatedError < Error; end
+  class ShutdownError < Error; end
 
   def initialize
     @queue = Puddle::Queue.new
@@ -42,7 +42,7 @@ class Puddle
   # @yield block to be executed
   # @return whatever the block returned
   # @raise [TimeoutError] if waiting for the task to finish timed out
-  # @raise [TerminatedError] if shutdown has been requested
+  # @raise [ShutdownError] if shutdown has been requested
   def sync(timeout = nil, &block)
     if Thread.current == @thread
       yield
@@ -55,7 +55,7 @@ class Puddle
   #
   # @yield block to be executed
   # @return [Puddle::Task]
-  # @raise [TerminatedError] if shutdown has been requested
+  # @raise [ShutdownError] if shutdown has been requested
   def async(&block)
     schedule(block)
   end
@@ -65,7 +65,7 @@ class Puddle
   # @note No additional tasks will be accepted during shutdown.
   #
   # @return [Puddle::Task]
-  def terminate
+  def shutdown
     queue, @queue = @queue, nil
     schedule(queue, lambda do
       @running = false
@@ -80,10 +80,10 @@ class Puddle
       begin
         queue.enq Task.new(block)
       rescue Puddle::Queue::DrainedError
-        raise TerminatedError, "puddle is terminated"
+        raise ShutdownError, "puddle is shutdown"
       end
     else
-      raise TerminatedError, "puddle is terminated"
+      raise ShutdownError, "puddle is shutdown"
     end
   end
 end
