@@ -10,9 +10,6 @@ class Puddle
     @thread = Thread.new(&method(:run_loop))
   end
 
-  # @return [Thread] the underlying Puddle thread.
-  attr_reader :thread
-
   # Synchronously schedule a block for execution.
   #
   # If run from inside a task in the same puddle, the block is executed

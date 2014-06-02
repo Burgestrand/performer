@@ -5,10 +5,6 @@ describe Puddle do
     Puddle::VERSION.should_not be_nil
   end
 
-  specify "#thread" do
-    puddle.thread.should be_a(Thread)
-  end
-
   describe "errors" do
     specify "standard errors in tasks do not crash the puddle" do
       lambda { puddle.sync { raise "Hell" } }.should raise_error(/Hell/)
@@ -61,17 +57,14 @@ describe Puddle do
     it "executes a task synchronously in another thread" do
       thread = puddle.sync { Thread.current }
       thread.should_not eq(Thread.current)
-      thread.should eq(puddle.thread)
     end
   end
 
   describe "#async" do
     it "executes a task asynchronously in another thread" do
       task = puddle.async { Thread.current }
-
       thread = task.value
       thread.should_not eq(Thread.current)
-      thread.should eq(puddle.thread)
     end
   end
 
