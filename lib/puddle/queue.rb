@@ -43,8 +43,14 @@ class Puddle
     # - not empty, not open: yield an item off the queue, return false
     # - empty, not open: return false
     #
+    # @example
+    #   open = queue.deq do |obj|
+    #     # do something with obj
+    #   end
+    #
     # @yield [obj] an item retrieved from the queue, if available
     # @return [Boolean] true if queue is open, false if open
+    # @raise [ArgumentError] if no block given
     def deq
       unless block_given?
         raise ArgumentError, "no block given"
@@ -68,11 +74,20 @@ class Puddle
       was_open
     end
 
-    # Close the queue, preventing any further {#enq} or {#deq}.
+    # Close the queue, optionally pushing an item onto the queue right before close.
     #
-    # @note Once closed, the queue cannot be opened.
+    # @example close and enqueue
+    #   queue.close(object) do
+    #     raise "Queue is was already closed!"
+    #   end
     #
-    # @param obj final item to add to the queue before close
+    # @example close without enqueue
+    #   queue.close # => no need for block, since no argument
+    #
+    # @yield if obj could not be pushed onto the queue
+    # @param [Object, nil] obj
+    # @return [Object, nil] obj
+    # @raise [ArgumentError] if obj given, but no block given
     def close(obj = undefined)
       if undefined.equal?(obj)
         @queue_mutex.synchronize do
@@ -96,7 +111,7 @@ class Puddle
       end
     end
 
-    # @return [Boolean] true
+    # @return [Boolean] true if queue is empty
     def empty?
       queue.empty?
     end
