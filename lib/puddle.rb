@@ -7,27 +7,7 @@ class Puddle
   def initialize
     @queue = Puddle::Queue.new
     @running = true
-
-    @thread = Thread.new(@queue) do |queue|
-      begin
-        while @running
-          begin
-            queue.deq.call
-          rescue Puddle::Task::Error
-            # Ignore. Task could have been cancelled,
-            # or executed from somewhere else. Oh well.
-          end
-        end
-      ensure
-        queue.drain.each do |task|
-          begin
-            task.cancel
-          rescue Puddle::Task::Error
-            # Ignore it. We're exiting anyway.
-          end
-        end
-      end
-    end
+    @thread = Thread.new(&method(:run_loop))
   end
 
   # @return [Thread] the underlying Puddle thread.
@@ -47,7 +27,7 @@ class Puddle
     if Thread.current == @thread
       yield
     else
-      schedule(block).value(timeout)
+      async(&block).value(timeout)
     end
   end
 
@@ -57,7 +37,8 @@ class Puddle
   # @return [Puddle::Task]
   # @raise [ShutdownError] if shutdown has been requested
   def async(&block)
-    schedule(block)
+    task = Task.new(block)
+    @queue.enq(task) { raise ShutdownError, "puddle is shutdown" }
   end
 
   # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
@@ -66,24 +47,40 @@ class Puddle
   #
   # @return [Puddle::Task]
   def shutdown
-    queue, @queue = @queue, nil
-    schedule(queue, lambda do
+    task = Task.new(lambda do
       @running = false
       yield if block_given?
     end)
+
+    @queue.close(task) { raise ShutdownError, "puddle is shutdown" }
   end
 
   private
 
-  def schedule(queue = @queue, block)
-    if queue
-      begin
-        queue.enq Task.new(block)
-      rescue Puddle::Queue::DrainedError
-        raise ShutdownError, "puddle is shutdown"
+  def run_loop
+    while @running
+      open = @queue.deq do |task|
+        begin
+          task.call
+        rescue Puddle::Task::Error
+          # No op. Allows cancelling scheduled tasks.
+        end
       end
-    else
-      raise ShutdownError, "puddle is shutdown"
+
+      if not open and @queue.empty?
+        @running = false
+      end
+    end
+  ensure
+    @queue.close
+    until @queue.empty?
+      @queue.deq do |task|
+        begin
+          task.cancel
+        rescue Puddle::Task::Error
+          # Shutting down. Don't care.
+        end
+      end
     end
   end
 end

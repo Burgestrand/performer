@@ -1,56 +1,122 @@
 class Puddle
-  # Similar to the stdlib Queue, but with an added method {#drain}.
+  # Similar to the stdlib Queue, but with a thread-safe way of closing it down.
   class Queue
-    class DrainedError < Error; end
-
     def initialize
       @queue = []
       @queue_mutex = Mutex.new
       @queue_cond = Puddle::ConditionVariable.new
+      @undefined = {}
+      @open = true
     end
 
-    # Drain the Queue.
+    # Push an object into the queue, or yield if not possible.
     #
-    # @return [Array] contents of the queue
-    def drain
-      @queue_mutex.synchronize do
-        queue.tap do
-          @queue = nil
-          @queue_cond.broadcast
-        end
-      end
-    end
-
-    # Push an object into the queue.
+    # @example pushing an item onto the queue
+    #   queue.enq(obj) do
+    #     raise "Unable to push #{obj} into queue!"
+    #   end
     #
-    # @see {#pop}
+    # @yield if obj could not be pushed onto the queue
     # @param obj
-    # @raise [DrainedError] if the queue has been drained.
+    # @return obj
+    # @raise [ArgumentError] if no block given
     def enq(obj)
+      unless block_given?
+        raise ArgumentError, "no block given"
+      end
+
+      pushed = false
       @queue_mutex.synchronize do
-        queue.push(obj)
+        pushed = try_push(obj)
         @queue_cond.signal
       end
+      yield if not pushed
 
       obj
     end
 
     # Retrieve an object from the queue, or block until one is available.
     #
-    # @see {#push}
-    # @return obj
-    # @raise [DrainedError] if the queue has been drained.
+    # The behaviour is as follows:
+    # - empty, open: block until queue is either not empty, or open
+    # - not empty, open: yield an item off the queue, return true
+    # - not empty, not open: yield an item off the queue, return false
+    # - empty, not open: return false
+    #
+    # @yield [obj] an item retrieved from the queue, if available
+    # @return [Boolean] true if queue is open, false if open
     def deq
-      @queue_mutex.synchronize do
-        @queue_cond.wait_until(@queue_mutex) { not queue.empty? }
-        queue.shift
+      unless block_given?
+        raise ArgumentError, "no block given"
       end
+
+      obj, was_open = @queue_mutex.synchronize do
+        while empty? and open?
+          @queue_cond.wait(@queue_mutex)
+        end
+
+        obj = if empty?
+          undefined
+        else
+          queue.shift
+        end
+
+        [obj, open?]
+      end
+
+      yield obj unless undefined.equal?(obj)
+      was_open
+    end
+
+    # Close the queue, preventing any further {#enq} or {#deq}.
+    #
+    # @note Once closed, the queue cannot be opened.
+    #
+    # @param obj final item to add to the queue before close
+    def close(obj = undefined)
+      if undefined.equal?(obj)
+        @queue_mutex.synchronize do
+          @open = false
+          @queue_cond.broadcast
+        end
+
+        nil
+      elsif not block_given?
+        raise ArgumentError, "no block given"
+      else
+        pushed = false
+        @queue_mutex.synchronize do
+          pushed = try_push(obj)
+          @open = false
+          @queue_cond.broadcast
+        end
+        yield if not pushed
+
+        obj
+      end
+    end
+
+    # @return [Boolean] true
+    def empty?
+      queue.empty?
     end
 
     private
 
-    def queue
-      @queue or raise DrainedError, "queue is drained"
+    attr_reader :undefined
+    attr_reader :queue
+
+    def try_push(obj)
+      if open?
+        queue.push(obj)
+        true
+      else
+        false
+      end
+    end
+
+    def open?
+      @open
     end
   end
 end
