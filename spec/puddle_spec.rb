@@ -38,6 +38,7 @@ describe Puddle do
       lambda { puddle.sync { raise Exception, "Hell" } }.should raise_error
 
       lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::ShutdownError)
+      lambda { puddle.shutdown }.should raise_error(Puddle::ShutdownError)
     end
   end
 
@@ -69,7 +70,7 @@ describe Puddle do
   end
 
   describe "#shutdown" do
-    it "allows all existing tasks to finish" do
+    it "performs a clean shutdown, allowing scheduled tasks to finish" do
       stopgap = Queue.new
       waiter = Thread.new(Thread.current) do |thread|
         wait_until_sleep(thread)
@@ -78,15 +79,20 @@ describe Puddle do
 
       puddle.async { stopgap.pop }
       task = puddle.async { :done }
-      term = puddle.shutdown { :yay }
+      term = puddle.shutdown
 
       task.value.should eq(:done)
-      term.value.should eq(:yay)
+      term.value.should eq(nil)
     end
 
     it "prevents scheduling additional tasks" do
-      puddle.shutdown { :yay }
+      puddle.shutdown
       lambda { puddle.sync { 1 + 1 } }.should raise_error(Puddle::ShutdownError)
+    end
+
+    it "raises an error if shutdown is already underway" do
+      puddle.shutdown
+      lambda { puddle.shutdown }.should raise_error(Puddle::ShutdownError)
     end
   end
 end

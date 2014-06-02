@@ -8,6 +8,10 @@ class Puddle
     @queue = Puddle::Queue.new
     @running = true
     @thread = Thread.new(&method(:run_loop))
+    @shutdown_task = Task.new(lambda do
+      @running = false
+      nil
+    end)
   end
 
   # Synchronously schedule a block for execution.
@@ -35,7 +39,7 @@ class Puddle
   # @raise [ShutdownError] if shutdown has been requested
   def async(&block)
     task = Task.new(block)
-    @queue.enq(task) { raise ShutdownError, "puddle is shutdown" }
+    @queue.enq(task) { raise ShutdownError, "puddle is shut down" }
   end
 
   # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
@@ -43,13 +47,13 @@ class Puddle
   # @note No additional tasks will be accepted after shutdown.
   #
   # @return [Puddle::Task]
+  # @raise [ShutdownError] if puddle is already shutdown
   def shutdown
-    task = Task.new(lambda do
-      @running = false
-      yield if block_given?
-    end)
+    @queue.close(@shutdown_task) do
+      raise ShutdownError, "puddle is shut down"
+    end
 
-    @queue.close(task) { raise ShutdownError, "puddle is shutdown" }
+    @shutdown_task
   end
 
   private
