@@ -18,7 +18,9 @@ result # => 3
 future = puddle.async { 2 + 1 }
 future.value # => 3
 
-puddle.shutdown(timeout) do
+future = puddle.shutdown do
   puts "Puddle has been properly shutdown."
 end
+
+future.value # wait for shutdown
 ```
