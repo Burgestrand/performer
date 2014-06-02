@@ -40,7 +40,7 @@ class Puddle
 
   # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
   #
-  # @note No additional tasks will be accepted during shutdown.
+  # @note No additional tasks will be accepted after shutdown.
   #
   # @return [Puddle::Task]
   def shutdown
