@@ -1,3 +1,4 @@
+require "thread"
 require "forwardable"
 
 class Performer
