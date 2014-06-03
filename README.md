@@ -1,8 +1,8 @@
 # Performer
 
-[![Build Status](https://travis-ci.org/Burgestrand/performer.svg?branch=master)](https://travis-ci.org/Burgestrand/puddle)
-[![Code Climate](https://codeclimate.com/github/Burgestrand/performer.png)](https://codeclimate.com/github/Burgestrand/puddle)
-[![Gem Version](https://badge.fury.io/rb/performer.png)](http://badge.fury.io/rb/puddle)
+[![Build Status](https://travis-ci.org/Burgestrand/performer.svg?branch=master)](https://travis-ci.org/Burgestrand/performer)
+[![Code Climate](https://codeclimate.com/github/Burgestrand/performer.png)](https://codeclimate.com/github/Burgestrand/performer)
+[![Gem Version](https://badge.fury.io/rb/performer.png)](http://badge.fury.io/rb/performer)
 
 ```
 gem install performer
