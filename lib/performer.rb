@@ -5,6 +5,8 @@ require "performer/version"
 # blocks for execution in the performer thread, and a way to shut down
 # the performer cleanly.
 #
+# @note The Performer is thread-safe.
+#
 # @example usage
 #   performer = Performer.new
 #   performer.sync { 1 + 1 } # => 2
