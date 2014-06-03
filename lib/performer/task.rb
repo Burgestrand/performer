@@ -1,6 +1,6 @@
 require "timeout"
 
-class Puddle
+class Performer
   # A task is constructed with a callable object (like a proc), and provides ways to:
   #
   # - call the contained object, once and only once
@@ -22,7 +22,7 @@ class Puddle
       executing: { error: true, value: true },
     }
 
-    class Error < Puddle::Error; end
+    class Error < Performer::Error; end
 
     # Raised in {Task#value} if the task was cancelled.
     class CancelledError < Error; end
@@ -37,7 +37,7 @@ class Puddle
       @callable = callable
 
       @value_mutex = Mutex.new
-      @value_cond = Puddle::ConditionVariable.new
+      @value_cond = Performer::ConditionVariable.new
 
       @value = nil
       @value_type = :idle

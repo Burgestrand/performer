@@ -1,4 +1,4 @@
-require "puddle"
+require "performer"
 require "timeout"
 
 module ConcurrencyUtilities

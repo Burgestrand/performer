@@ -1,6 +1,6 @@
 require "forwardable"
 
-class Puddle
+class Performer
   class ConditionVariable
     extend Forwardable
 

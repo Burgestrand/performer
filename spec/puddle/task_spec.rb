@@ -1,26 +1,26 @@
-describe Puddle::Task do
-  let(:task) { Puddle::Task.new(noop) }
+describe Performer::Task do
+  let(:task) { Performer::Task.new(noop) }
   let(:noop) { lambda { :ok } }
 
   describe "#call" do
     it "raises an error if called after a result is available" do
       task.call
 
-      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.call }.should raise_error(Performer::Task::InvariantError)
     end
 
     it "raises an error when called during execution" do
-      task = Puddle::Task.new(lambda { sleep })
+      task = Performer::Task.new(lambda { sleep })
       thread = Thread.new(task, &:call)
       wait_until_sleep(thread)
 
-      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.call }.should raise_error(Performer::Task::InvariantError)
     end
 
     it "raises an error if called after task was cancelled" do
       task.cancel
 
-      lambda { task.call }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.call }.should raise_error(Performer::Task::InvariantError)
     end
 
     it "swallows standard errors" do
@@ -44,15 +44,15 @@ describe Puddle::Task do
     it "raises an error if called after a result is available" do
       task.call
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.cancel }.should raise_error(Performer::Task::InvariantError)
     end
 
     it "raises an error when called during execution" do
-      task = Puddle::Task.new(lambda { sleep; :ok })
+      task = Performer::Task.new(lambda { sleep; :ok })
       thread = Thread.new(task, &:call)
       wait_until_sleep(thread)
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.cancel }.should raise_error(Performer::Task::InvariantError)
 
       thread.wakeup
       task.value.should eq(:ok)
@@ -61,7 +61,7 @@ describe Puddle::Task do
     it "raises an error if called after task was cancelled" do
       task.cancel
 
-      lambda { task.cancel }.should raise_error(Puddle::Task::InvariantError)
+      lambda { task.cancel }.should raise_error(Performer::Task::InvariantError)
     end
   end
 
@@ -84,7 +84,7 @@ describe Puddle::Task do
       it "raises the error if the task is cancelled" do
         task.cancel
 
-        lambda { task.value }.should raise_error(Puddle::Task::CancelledError)
+        lambda { task.value }.should raise_error(Performer::Task::CancelledError)
       end
     end
 
@@ -108,7 +108,7 @@ describe Puddle::Task do
       it "is woken up once task is cancelled" do
         task.cancel
 
-        lambda { waiter.value }.should raise_error(Puddle::Task::CancelledError)
+        lambda { waiter.value }.should raise_error(Performer::Task::CancelledError)
       end
     end
 

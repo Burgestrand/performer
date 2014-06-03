@@ -1,11 +1,11 @@
-require "puddle/version"
+require "performer/version"
 
-class Puddle
+class Performer
   class Error < StandardError; end
   class ShutdownError < Error; end
 
   def initialize
-    @queue = Puddle::Queue.new
+    @queue = Performer::Queue.new
     @running = true
     @thread = Thread.new(&method(:run_loop))
     @shutdown_task = Task.new(lambda do
@@ -16,7 +16,7 @@ class Puddle
 
   # Synchronously schedule a block for execution.
   #
-  # If run from inside a task in the same puddle, the block is executed
+  # If run from inside a task in the same performer, the block is executed
   # immediately. You can avoid this behavior by using {#async} instead.
   #
   # @param [Integer, nil] timeout (see Task#value)
@@ -35,22 +35,22 @@ class Puddle
   # Asynchronously schedule a block for execution.
   #
   # @yield block to be executed
-  # @return [Puddle::Task]
+  # @return [Performer::Task]
   # @raise [ShutdownError] if shutdown has been requested
   def async(&block)
     task = Task.new(block)
-    @queue.enq(task) { raise ShutdownError, "puddle is shut down" }
+    @queue.enq(task) { raise ShutdownError, "performer is shut down" }
   end
 
   # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
   #
   # @note No additional tasks will be accepted after shutdown.
   #
-  # @return [Puddle::Task]
-  # @raise [ShutdownError] if puddle is already shutdown
+  # @return [Performer::Task]
+  # @raise [ShutdownError] if performer is already shutdown
   def shutdown
     @queue.close(@shutdown_task) do
-      raise ShutdownError, "puddle is shut down"
+      raise ShutdownError, "performer is shut down"
     end
 
     @shutdown_task
@@ -63,7 +63,7 @@ class Puddle
       open = @queue.deq do |task|
         begin
           task.call
-        rescue Puddle::Task::Error
+        rescue Performer::Task::Error
           # No op. Allows cancelling scheduled tasks.
         end
       end
@@ -78,7 +78,7 @@ class Puddle
       @queue.deq do |task|
         begin
           task.cancel
-        rescue Puddle::Task::Error
+        rescue Performer::Task::Error
           # Shutting down. Don't care.
         end
       end
@@ -86,6 +86,6 @@ class Puddle
   end
 end
 
-require "puddle/condition_variable"
-require "puddle/queue"
-require "puddle/task"
+require "performer/condition_variable"
+require "performer/queue"
+require "performer/task"

@@ -1,5 +1,5 @@
-describe Puddle::Queue do
-  let(:queue) { Puddle::Queue.new }
+describe Performer::Queue do
+  let(:queue) { Performer::Queue.new }
   let(:failer) { lambda { raise "This should not happen" } }
 
   def dequeue(q)

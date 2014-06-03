@@ -1,10 +1,10 @@
-class Puddle
+class Performer
   # Similar to the stdlib Queue, but with a thread-safe way of closing it down.
   class Queue
     def initialize
       @queue = []
       @queue_mutex = Mutex.new
-      @queue_cond = Puddle::ConditionVariable.new
+      @queue_cond = Performer::ConditionVariable.new
       @undefined = {}
       @open = true
     end

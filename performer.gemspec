@@ -1,15 +1,15 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'puddle/version'
+require 'performer/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "puddle"
-  spec.version       = Puddle::VERSION
+  spec.name          = "performer"
+  spec.version       = Performer::VERSION
   spec.authors       = ["Kim Burgestrand"]
   spec.email         = ["kim@burgestrand.se"]
   spec.summary       = %q{Schedule blocks in a background thread.}
-  spec.description   = %q{Puddle is a tiny gem for scheduling blocks in a background thread,
+  spec.description   = %q{Performer is a tiny gem for scheduling blocks in a background thread,
 and optionally waiting for the return value.}
   spec.homepage      = ""
   spec.license       = "MIT"
