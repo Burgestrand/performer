@@ -28,3 +28,6 @@ end
 
 future.value # wait for shutdown
 ```
+
+See documentation for [Performer](http://rdoc.info/github/Burgestrand/performer/master/Performer)
+and [Performer::Task](http://rdoc.info/github/Burgestrand/performer/master/Performer/Task).
