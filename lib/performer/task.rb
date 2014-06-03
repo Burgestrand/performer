@@ -22,6 +22,7 @@ class Performer
       executing: { error: true, value: true },
     }
 
+    # Allows easy capturing of all task-specific errors.
     class Error < Performer::Error; end
 
     # Raised in {Task#value} if the task was cancelled.

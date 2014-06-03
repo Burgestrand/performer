@@ -1,3 +1,4 @@
 class Performer
-  VERSION = "0.0.1"
+  # Current version of Performer.
+  VERSION = "1.0.0"
 end

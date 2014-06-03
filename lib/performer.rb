@@ -1,7 +1,19 @@
 require "performer/version"
 
+# Performer is the main entry point and namespace of the Performer gem.
+# It provides methods for synchronously and asynchronously scheduling
+# blocks for execution in the performer thread, and a way to shut down
+# the performer cleanly.
+#
+# @example usage
+#   performer = Performer.new
+#   performer.sync { 1 + 1 } # => 2
+#   performer.async { 1 + 1 } # => Performer::Task
 class Performer
+  # All internal errors inherit from Performer::Error.
   class Error < StandardError; end
+
+  # Raised by {Performer#shutdown}.
   class ShutdownError < Error; end
 
   def initialize
@@ -13,6 +25,12 @@ class Performer
       nil
     end)
   end
+
+  # If you ever need to forcefully kill the Performer (don't do that),
+  # here's the thread you'll need to attack.
+  #
+  # @return [Thread]
+  attr_reader :thread
 
   # Synchronously schedule a block for execution.
   #
