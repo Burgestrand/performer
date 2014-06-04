@@ -12,7 +12,7 @@ describe Performer::Task do
     it "raises an error when called during execution" do
       task = Performer::Task.new(lambda { sleep })
       thread = Thread.new(task, &:call)
-      wait_until_sleep(thread)
+      wait_until(thread, "sleep")
 
       lambda { task.call }.should raise_error(Performer::Task::InvariantError)
     end
@@ -50,7 +50,7 @@ describe Performer::Task do
     it "raises an error when called during execution" do
       task = Performer::Task.new(lambda { sleep; :ok })
       thread = Thread.new(task, &:call)
-      wait_until_sleep(thread)
+      wait_until(thread, "sleep")
 
       lambda { task.cancel }.should raise_error(Performer::Task::InvariantError)
 
@@ -90,7 +90,7 @@ describe Performer::Task do
 
     context "task receives a result later on" do
       let(:waiter) { Thread.new(task, &:value) }
-      before(:each) { wait_until_sleep(waiter) }
+      before(:each) { wait_until(waiter, "sleep") }
 
       it "is woken up once a value is available" do
         task.call

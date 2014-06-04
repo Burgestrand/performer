@@ -73,7 +73,7 @@ describe Performer do
     it "performs a clean shutdown, allowing scheduled tasks to finish" do
       stopgap = Queue.new
       waiter = Thread.new(Thread.current) do |thread|
-        wait_until_sleep(thread)
+        wait_until(thread, "sleep")
         stopgap.push :go
       end
 

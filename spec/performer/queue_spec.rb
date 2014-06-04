@@ -56,7 +56,7 @@ describe Performer::Queue do
         Thread.new(queue) { |q| dequeue(q) }
       end
 
-      before { wait_until_sleep(waiter) }
+      before { wait_until(waiter, "sleep") }
 
       specify "is awoken when an object is added" do
         queue.enq(1) { raise "enq failed" }

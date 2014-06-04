@@ -2,8 +2,8 @@ require "performer"
 require "timeout"
 
 module ConcurrencyUtilities
-  def wait_until_sleep(thread)
-    Thread.pass until thread.status == "sleep"
+  def wait_until(thread, status)
+    Thread.pass until thread.status == status
   end
 end
 
