@@ -1,10 +1,12 @@
+require "monitor"
+
 class Performer
   # Similar to the stdlib Queue, but with a thread-safe way of closing it down.
   class Queue
     def initialize
       @queue = []
-      @queue_mutex = Mutex.new
-      @queue_cond = Performer::ConditionVariable.new
+      @queue_mutex = Monitor.new
+      @queue_cond = @queue_mutex.new_cond
       @undefined = {}
       @open = true
     end
@@ -57,9 +59,7 @@ class Performer
       end
 
       obj, was_open = @queue_mutex.synchronize do
-        while empty? and open?
-          @queue_cond.wait(@queue_mutex)
-        end
+        @queue_cond.wait_while { empty? and open? }
 
         obj = if empty?
           undefined
