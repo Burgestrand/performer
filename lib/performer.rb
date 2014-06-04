@@ -22,6 +22,8 @@ class Performer
     @queue = Performer::Queue.new
     @running = true
     @thread = Thread.new(&method(:run_loop))
+
+    @current_task = nil
     @shutdown_task = Task.new(lambda do
       @running = false
       nil
@@ -80,13 +82,7 @@ class Performer
 
   def run_loop
     while @running
-      open = @queue.deq do |task|
-        begin
-          task.call
-        rescue Performer::Task::Error
-          # No op. Allows cancelling scheduled tasks.
-        end
-      end
+      open = @queue.deq { |task| with_task(task, &:call) }
 
       if not open and @queue.empty?
         @running = false
@@ -95,14 +91,18 @@ class Performer
   ensure
     @queue.close
     until @queue.empty?
-      @queue.deq do |task|
-        begin
-          task.cancel
-        rescue Performer::Task::Error
-          # Shutting down. Don't care.
-        end
-      end
+      @queue.deq { |task| with_task(task, &:cancel) }
     end
+  end
+
+  def with_task(task)
+    @current_task = task
+    yield task
+  rescue Performer::Task::Error
+    # Performer calling task does not care if you cancelled
+    # task, or if you called task earlier. We skip it.
+  ensure
+    @current_task = nil
   end
 end
 
