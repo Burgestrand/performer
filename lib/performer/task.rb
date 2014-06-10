@@ -34,8 +34,10 @@ class Performer
     # Create a new Task from a callable object.
     #
     # @param [#call] callable
-    def initialize(callable)
+    # @param [Array<String>] backtrace
+    def initialize(callable, backtrace = nil)
       @callable = callable
+      @backtrace = backtrace
 
       @value_mutex = Mutex.new
       @value_cond = Performer::ConditionVariable.new
@@ -58,11 +60,13 @@ class Performer
 
       begin
         value = @callable.call(*args, &block)
-      rescue => ex
-        set(:error) { ex }
       rescue Exception => ex
+        slice_length = caller.length + 1
+        ex.backtrace.slice!(-slice_length, slice_length)
+        ex.backtrace[0] << " (task failed: #{ex.message} (#{ex.class}))" if @backtrace
+
         set(:error) { ex }
-        raise ex
+        raise ex unless ex.is_a?(StandardError)
       else
         set(:value) { value }
       end
@@ -77,7 +81,14 @@ class Performer
     #
     # @param [String] message for the cancellation error
     def cancel(message = "task was cancelled")
-      set(:cancelled) { CancelledError.new(message) }
+      backtrace = caller(0)
+      backtrace[0] << " (Task#cancel: #{message})"
+
+      set(:cancelled) do
+        error = CancelledError.new(message)
+        error.set_backtrace(backtrace)
+        error
+      end
     end
 
     # Retrieve the value of the task. If the task is not finished, this will block.
@@ -98,7 +109,7 @@ class Performer
       if value?
         return @value
       elsif error? or cancelled?
-        raise @value
+        raise prepare_backtrace(@value)
       elsif block_given?
         yield
       else
@@ -122,6 +133,21 @@ class Performer
 
     def done?
       value? or error? or cancelled?
+    end
+
+    def prepare_backtrace(error)
+      error = error.dup
+
+      value_backtrace = caller(1)
+
+      if @backtrace
+        error.backtrace.unshift(*value_backtrace)
+        error.backtrace.concat(@backtrace)
+      else
+        error.backtrace.concat(value_backtrace)
+      end
+
+      error
     end
 
     # @param [Symbol] type

@@ -50,7 +50,7 @@ class Performer
     if Thread.current == @thread
       yield
     else
-      async(&block).value(timeout)
+      enq(block, nil).value(timeout)
     end
   end
 
@@ -60,8 +60,7 @@ class Performer
   # @return [Performer::Task]
   # @raise [ShutdownError] if shutdown has been requested
   def async(&block)
-    task = Task.new(block)
-    @queue.enq(task) { raise ShutdownError, "performer is shut down" }
+    enq(block, caller(0))
   end
 
   # Asynchronously schedule a shutdown, allowing all previously queued tasks to finish.
@@ -79,6 +78,11 @@ class Performer
   end
 
   private
+
+  def enq(block, backtrace)
+    task = Task.new(block, backtrace)
+    @queue.enq(task) { raise ShutdownError, "performer is shut down" }
+  end
 
   def run_loop
     while @running
